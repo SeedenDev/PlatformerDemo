@@ -1,0 +1,32 @@
+#include "Quad.h"
+
+Quad::Quad(glm::vec3 position)
+{
+    m_Transform.position = position;
+
+    m_Vao.Bind();
+    m_Vbo.Bind();
+    m_Ibo.Bind();
+
+    VertexLayout attributes;
+    attributes.AddAttr<float>(2);
+    attributes.AddAttr<float>(2);
+    m_Vao.ApplyLayout(m_Vbo, attributes);
+
+    m_Vao.Unbind();
+    m_Vbo.Unbind();
+    m_Ibo.Unbind();
+
+    UpdateModelMatrix();
+}
+
+Quad::~Quad()
+{
+}
+
+void Quad::Draw() const
+{
+    m_Vao.Bind();
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    m_Vao.Unbind();
+}
