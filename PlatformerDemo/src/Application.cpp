@@ -72,6 +72,28 @@ int main(void)
 
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
+    // Instancing experimentation
+    defaultShader.Bind();
+    const size_t tilesCount = defaultLevel.tiles.size();
+    for (int i = 0; i < tilesCount; i++)
+    {
+        const Tile& tile = defaultLevel.tiles[i];
+        defaultShader.SetUniform2f("u_TileTranforms[" + std::to_string(i) + "]", (float)tile.x, (float)tile.y);
+    }
+    defaultShader.Unbind();
+    VertexArray vao;
+    VertexBuffer vbo(g_QuadVertices, sizeof(g_QuadVertices));
+    IndexBuffer ibo(g_QuadIndices, sizeof(g_QuadIndices));
+    VertexLayout attributes;
+    attributes.AddAttr<float>(2);
+    attributes.AddAttr<float>(2);
+    vao.ApplyLayout(vbo, attributes);
+    vao.Unbind();
+    vbo.Unbind();
+    ibo.Unbind();
+    bool useInstanced = 0;
+    //--------end of experimentation
+
     while (!appWindow.ShouldClose())
     {
         /* Poll for and process events */
@@ -136,14 +158,26 @@ int main(void)
             playerQuad.Draw();
             // render tiles
             defaultShader.SetUniform1i("u_Texture", terrainTexture.GetSlot());
-            for (const Tile& tile : defaultLevel.tiles)
+            if (!useInstanced)
             {
-                if (!tile.visible) continue;
-                model = tile.quad.get()->GetModelMatrix();
-                MVP = projection * view * model;
-                defaultShader.SetUniformMat4f("u_Model", model);
-                defaultShader.SetUniformMat4f("u_MVP", MVP);
-                tile.quad.get()->Draw();
+                defaultShader.SetUniform1i("u_Instanced", 0);
+                for (const Tile& tile : defaultLevel.tiles)
+                {
+                    if (!tile.visible) continue;
+                    model = tile.quad.get()->GetModelMatrix();
+                    MVP = projection * view * model;
+                    defaultShader.SetUniformMat4f("u_Model", model);
+                    defaultShader.SetUniformMat4f("u_MVP", MVP);
+                    tile.quad.get()->Draw();
+                }
+            }
+            else {
+                defaultShader.SetUniform1i("u_Instanced", 1);
+                defaultShader.SetUniformMat4f("u_VP", projection * view);
+                vao.Bind();
+                glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, tilesCount);
+                vao.Unbind();
+                defaultShader.SetUniform1i("u_Instanced", 0);
             }
             // render enemies
             defaultShader.SetUniform1i("u_Texture", enemyTexture.GetSlot());
@@ -182,6 +216,7 @@ int main(void)
                     }
                 }
                 if (ImGui::ColorEdit3("ClearColor", &clearColor[0])) glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
+                ImGui::Checkbox("Use instanced", &useInstanced);
                 ImGui::End();
             }
             ImGui::Render();
